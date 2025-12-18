@@ -51,6 +51,7 @@
               <input
                 v-model="account"
                 type="text"
+                pattern="^1\\d{10}$"
                 placeholder="例如: user123"
                 class="mt-2 w-full rounded-lg border border-slate-600 bg-slate-800/80 px-3 py-2 text-sm text-white placeholder:text-slate-400 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
                 required
@@ -110,6 +111,7 @@
 </template>
 
 <script lang="ts">
+import { register } from "@/api/uset";
 import Vue from "vue";
 
 export default Vue.extend({
@@ -124,14 +126,30 @@ export default Vue.extend({
     };
   },
   methods: {
-    handleRegister() {
+    async handleRegister() {
       if (this.loading) return;
       if (this.password !== this.confirmPassword) {
-        //TODO: 提示两次输入的密码不一致,使用element-ui的message组件
+        this.$message.error("两次输入的密码不一致");
         return;
       }
       this.loading = true;
-      // TODO: 接入注册接口
+      try {
+        const res = await register({
+          username: this.account,
+          password: this.password,
+          phone: this.phone,
+        });
+        if (res.data.code === 200) {
+          this.$message.success("注册成功");
+          this.$router.push("/");
+        } else {
+          this.$message.error(res.data.message);
+        }
+      } catch (error) {
+        this.$message.error("注册失败");
+      } finally {
+        this.loading = false;
+      }
     },
   },
 });

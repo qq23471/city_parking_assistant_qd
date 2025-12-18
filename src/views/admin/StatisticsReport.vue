@@ -22,9 +22,10 @@
         </select>
         <button
           @click="refreshData"
-          class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
+          :disabled="loading"
+          class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
         >
-          刷新数据
+          {{ loading ? "加载中..." : "刷新数据" }}
         </button>
       </div>
     </div>
@@ -36,28 +37,28 @@
         <p class="text-3xl font-bold text-slate-900 mt-2">
           {{ stats.totalParkings }}
         </p>
-        <p class="text-xs text-emerald-600 mt-1">↑ 12% 较上期</p>
+        <p class="text-xs text-slate-500 mt-1">实时数据</p>
       </div>
       <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
         <p class="text-sm text-slate-600">平均占用率</p>
         <p class="text-3xl font-bold text-slate-900 mt-2">
           {{ stats.avgOccupancy }}%
         </p>
-        <p class="text-xs text-emerald-600 mt-1">↑ 5% 较上期</p>
+        <p class="text-xs text-slate-500 mt-1">实时数据</p>
       </div>
       <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
         <p class="text-sm text-slate-600">总收入</p>
         <p class="text-3xl font-bold text-slate-900 mt-2">
           ¥{{ stats.totalRevenue }}
         </p>
-        <p class="text-xs text-emerald-600 mt-1">↑ 18% 较上期</p>
+        <p class="text-xs text-slate-500 mt-1">实时数据</p>
       </div>
       <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
         <p class="text-sm text-slate-600">共享车位数</p>
         <p class="text-3xl font-bold text-slate-900 mt-2">
           {{ stats.sharedCount }}
         </p>
-        <p class="text-xs text-emerald-600 mt-1">↑ 8% 较上期</p>
+        <p class="text-xs text-slate-500 mt-1">实时数据</p>
       </div>
     </div>
 
@@ -66,63 +67,20 @@
       <!-- 每日停车流量 -->
       <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
         <h3 class="text-lg font-semibold text-slate-900 mb-4">每日停车流量</h3>
-        <div class="h-64 flex items-end justify-between gap-2">
-          <div
-            v-for="(value, index) in dailyFlow"
-            :key="index"
-            class="flex-1 flex flex-col items-center"
-          >
-            <div
-              class="w-full bg-emerald-500 rounded-t transition-all hover:bg-emerald-600"
-              :style="{ height: `${(value / maxFlow) * 100}%` }"
-              :title="`${value}次`"
-            ></div>
-            <span class="text-xs text-slate-600 mt-2">{{ index + 1 }}日</span>
-          </div>
-        </div>
+        <div ref="dailyFlowChart" class="h-80 w-full"></div>
       </div>
 
       <!-- 热门时段统计 -->
       <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
         <h3 class="text-lg font-semibold text-slate-900 mb-4">热门时段统计</h3>
-        <div class="space-y-3">
-          <div
-            v-for="(period, index) in peakHours"
-            :key="index"
-            class="flex items-center gap-3"
-          >
-            <span class="text-sm text-slate-600 w-20">{{ period.time }}</span>
-            <div class="flex-1 bg-slate-200 rounded-full h-4">
-              <div
-                class="bg-emerald-500 h-4 rounded-full transition-all"
-                :style="{ width: `${(period.count / maxPeak) * 100}%` }"
-              ></div>
-            </div>
-            <span class="text-sm font-medium text-slate-900 w-12 text-right">{{
-              period.count
-            }}</span>
-          </div>
-        </div>
+        <div ref="peakHoursChart" class="h-80 w-full"></div>
       </div>
     </div>
 
     <!-- 车位使用率趋势 -->
     <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
       <h3 class="text-lg font-semibold text-slate-900 mb-4">车位使用率趋势</h3>
-      <div class="h-64 flex items-end justify-between gap-2">
-        <div
-          v-for="(rate, index) in occupancyTrend"
-          :key="index"
-          class="flex-1 flex flex-col items-center"
-        >
-          <div
-            class="w-full bg-blue-500 rounded-t transition-all hover:bg-blue-600"
-            :style="{ height: `${rate}%` }"
-            :title="`${rate}%`"
-          ></div>
-          <span class="text-xs text-slate-600 mt-2">{{ index + 1 }}周</span>
-        </div>
-      </div>
+      <div ref="occupancyTrendChart" class="h-80 w-full"></div>
     </div>
 
     <!-- 停车场排行 -->
@@ -161,65 +119,271 @@
 
 <script lang="ts">
 import Vue from "vue";
-
-interface ParkingLot {
-  name: string;
-  address: string;
-  usage: number;
-}
+import * as echarts from "echarts";
+import {
+  getStatistics,
+  getDailyFlow,
+  getPeakHours,
+  getOccupancyTrend,
+  getParkingLotRank,
+} from "@/api/Admin";
+import {
+  StatisticsVO,
+  DailyFlowVO,
+  PeakHourVO,
+  OccupancyTrendVO,
+  ParkingLotRankVO,
+  StatisticsQueryDto,
+} from "@/api/index";
 
 export default Vue.extend({
   name: "StatisticsReport",
   data() {
     return {
+      loading: false,
       timeRange: "month",
       stats: {
-        totalParkings: 12450,
-        avgOccupancy: 68,
-        totalRevenue: 186750,
-        sharedCount: 156,
+        totalParkings: 0,
+        avgOccupancy: 0,
+        totalRevenue: 0,
+        sharedCount: 0,
+      } as StatisticsVO,
+      dailyFlow: [] as DailyFlowVO[],
+      peakHours: [] as PeakHourVO[],
+      occupancyTrend: [] as OccupancyTrendVO[],
+      topParkingLots: [] as ParkingLotRankVO[],
+      charts: {
+        dailyFlow: null as echarts.ECharts | null,
+        peakHours: null as echarts.ECharts | null,
+        occupancyTrend: null as echarts.ECharts | null,
       },
-      dailyFlow: [
-        120, 145, 98, 167, 189, 203, 178, 156, 134, 145, 167, 189, 203, 178,
-      ],
-      peakHours: [
-        { time: "08:00-10:00", count: 450 },
-        { time: "10:00-12:00", count: 320 },
-        { time: "12:00-14:00", count: 380 },
-        { time: "14:00-16:00", count: 290 },
-        { time: "16:00-18:00", count: 520 },
-        { time: "18:00-20:00", count: 480 },
-        { time: "20:00-22:00", count: 210 },
-      ],
-      occupancyTrend: [65, 68, 72, 70, 75, 73, 68, 70],
-      topParkingLots: [
-        {
-          name: "市中心商业区停车场",
-          address: "市中心商业街123号",
-          usage: 2340,
-        },
-        { name: "购物中心停车场", address: "万达广场", usage: 1890 },
-        { name: "火车站停车场", address: "火车站广场", usage: 1670 },
-        { name: "医院停车场", address: "市第一医院", usage: 1450 },
-        { name: "学校停车场", address: "市第一中学", usage: 980 },
-      ] as ParkingLot[],
     };
   },
-  computed: {
-    maxFlow(): number {
-      return Math.max(...this.dailyFlow);
-    },
-    maxPeak(): number {
-      return Math.max(...this.peakHours.map((p) => p.count));
+  mounted() {
+    this.initCharts();
+    this.loadData();
+    window.addEventListener("resize", this.handleResize);
+  },
+  beforeDestroy() {
+    window.removeEventListener("resize", this.handleResize);
+    // 销毁图表实例
+    Object.values(this.charts).forEach((chart) => {
+      chart?.dispose();
+    });
+  },
+  watch: {
+    timeRange() {
+      this.loadData();
     },
   },
   methods: {
-    refreshData() {
-      // 模拟数据刷新
-      this.stats.totalParkings += Math.floor(Math.random() * 100);
-      this.stats.avgOccupancy = 65 + Math.floor(Math.random() * 15);
-      this.stats.totalRevenue += Math.floor(Math.random() * 1000);
-      alert("数据已刷新");
+    /**
+     * 初始化图表
+     */
+    initCharts() {
+      this.charts.dailyFlow = echarts.init(
+        this.$refs.dailyFlowChart as HTMLElement
+      );
+      this.charts.peakHours = echarts.init(
+        this.$refs.peakHoursChart as HTMLElement
+      );
+      this.charts.occupancyTrend = echarts.init(
+        this.$refs.occupancyTrendChart as HTMLElement
+      );
+    },
+
+    /**
+     * 处理窗口缩放
+     */
+    handleResize() {
+      Object.values(this.charts).forEach((chart) => {
+        chart?.resize();
+      });
+    },
+
+    /**
+     * 加载所有统计数据
+     */
+    async loadData() {
+      this.loading = true;
+      try {
+        const params: StatisticsQueryDto = {
+          timeRange: this.timeRange,
+        };
+        await Promise.all([
+          this.loadStatistics(params),
+          this.loadDailyFlow(params),
+          this.loadPeakHours(params),
+          this.loadOccupancyTrend(params),
+          this.loadParkingLotRank(params),
+        ]);
+        this.updateCharts();
+      } catch (error) {
+        console.error("加载统计数据失败:", error);
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    /**
+     * 更新图表数据
+     */
+    updateCharts() {
+      // 每日停车流量图表
+      if (this.charts.dailyFlow) {
+        this.charts.dailyFlow.setOption({
+          tooltip: { trigger: "axis" },
+          grid: { left: "3%", right: "4%", bottom: "3%", containLabel: true },
+          xAxis: {
+            type: "category",
+            data: this.dailyFlow.map((item) => item.date),
+            axisLabel: {
+              formatter: (value: string) => value.split("-").slice(1).join("/"),
+            },
+          },
+          yAxis: { type: "value", name: "次数" },
+          series: [
+            {
+              name: "停车次数",
+              type: "bar",
+              data: this.dailyFlow.map((item) => item.count),
+              itemStyle: { color: "#10b981" },
+              barWidth: "60%",
+            },
+          ],
+        });
+      }
+
+      // 热门时段图表
+      if (this.charts.peakHours) {
+        this.charts.peakHours.setOption({
+          tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+          grid: { left: "3%", right: "4%", bottom: "3%", containLabel: true },
+          xAxis: { type: "value", name: "次数" },
+          yAxis: {
+            type: "category",
+            data: this.peakHours.map((item) => item.time).reverse(),
+          },
+          series: [
+            {
+              name: "停车次数",
+              type: "bar",
+              data: this.peakHours.map((item) => item.count).reverse(),
+              itemStyle: { color: "#10b981" },
+            },
+          ],
+        });
+      }
+
+      // 使用率趋势图表
+      if (this.charts.occupancyTrend) {
+        this.charts.occupancyTrend.setOption({
+          tooltip: { trigger: "axis" },
+          grid: { left: "3%", right: "4%", bottom: "3%", containLabel: true },
+          xAxis: {
+            type: "category",
+            data: this.occupancyTrend.map((item) => item.period),
+          },
+          yAxis: {
+            type: "value",
+            name: "使用率",
+            axisLabel: { formatter: "{value}%" },
+          },
+          series: [
+            {
+              name: "使用率",
+              type: "line",
+              data: this.occupancyTrend.map((item) => item.rate),
+              smooth: true,
+              areaStyle: {
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                  { offset: 0, color: "rgba(59, 130, 246, 0.5)" },
+                  { offset: 1, color: "rgba(59, 130, 246, 0)" },
+                ]),
+              },
+              itemStyle: { color: "#3b82f6" },
+            },
+          ],
+        });
+      }
+    },
+
+    /**
+     * 加载统计数据
+     */
+    async loadStatistics(params: StatisticsQueryDto) {
+      try {
+        const res = await getStatistics(params);
+        if (res.data?.code === 200) {
+          this.stats = res.data.data || {
+            totalParkings: 0,
+            avgOccupancy: 0,
+            totalRevenue: 0,
+            sharedCount: 0,
+          };
+        }
+      } catch (error) {
+        console.error("加载统计数据失败:", error);
+      }
+    },
+    /**
+     * 加载每日停车流量
+     */
+    async loadDailyFlow(params: StatisticsQueryDto) {
+      try {
+        const res = await getDailyFlow(params);
+        if (res.data?.code === 200) {
+          this.dailyFlow = res.data.data || [];
+        }
+      } catch (error) {
+        console.error("加载每日流量失败:", error);
+      }
+    },
+    /**
+     * 加载热门时段统计
+     */
+    async loadPeakHours(params: StatisticsQueryDto) {
+      try {
+        const res = await getPeakHours(params);
+        if (res.data?.code === 200) {
+          this.peakHours = res.data.data || [];
+        }
+      } catch (error) {
+        console.error("加载热门时段失败:", error);
+      }
+    },
+    /**
+     * 加载车位使用率趋势
+     */
+    async loadOccupancyTrend(params: StatisticsQueryDto) {
+      try {
+        const res = await getOccupancyTrend(params);
+        if (res.data?.code === 200) {
+          this.occupancyTrend = res.data.data || [];
+        }
+      } catch (error) {
+        console.error("加载使用率趋势失败:", error);
+      }
+    },
+    /**
+     * 加载停车场使用排行
+     */
+    async loadParkingLotRank(params: StatisticsQueryDto) {
+      try {
+        const res = await getParkingLotRank(params);
+        if (res.data?.code === 200) {
+          this.topParkingLots = res.data.data || [];
+        }
+      } catch (error) {
+        console.error("加载停车场排行失败:", error);
+      }
+    },
+    /**
+     * 刷新数据
+     */
+    async refreshData() {
+      await this.loadData();
+      this.$message.success("数据已刷新");
     },
   },
 });

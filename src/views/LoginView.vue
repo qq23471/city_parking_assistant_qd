@@ -147,8 +147,8 @@
 </template>
 
 <script lang="ts">
+import { login } from "@/api/uset";
 import Vue from "vue";
-
 export default Vue.extend({
   name: "LoginView",
   data() {
@@ -173,36 +173,37 @@ export default Vue.extend({
       }
       this.captcha = code;
     },
-    handleLogin() {
+    async handleLogin() {
       if (this.loading) return;
       if (
         !this.captchaInput ||
         this.captchaInput.trim().toUpperCase() !== this.captcha
       ) {
-        //TODO: 提示验证码不正确,使用element-ui的message组件
-        alert("验证码不正确，请重新输入");
+        this.$message.error("验证码不正确");
         this.generateCaptcha();
         this.captchaInput = "";
         return;
       }
       this.loading = true;
       //TODO: 接入登录接口
-      // 模拟登录成功
-      setTimeout(() => {
-        // 保存用户会话信息
-        const userSession = {
-          account: this.account,
-          email: this.account.includes("@") ? this.account : "",
-          loginTime: new Date().toISOString(),
-        };
-        localStorage.setItem(
-          "city_parking_user_session",
-          JSON.stringify(userSession)
-        );
+      try {
+        await login({
+          username: this.account,
+          password: this.password,
+          rememberMe: this.rememberMe,
+        }).then((res) => {
+          if (res.data.code === 200) {
+            localStorage.setItem("city_parking_token", res.data.data.token);
+            this.$router.push("/home/index");
+          } else {
+            this.$message.error(res.data.message);
+          }
+        });
+      } catch (error) {
+        this.$message.error("登录失败");
+      } finally {
         this.loading = false;
-        // 跳转到用户主页面
-        this.$router.push("/home/index");
-      }, 1000);
+      }
     },
   },
 });

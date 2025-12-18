@@ -92,20 +92,6 @@
             <span class="md:hidden text-xs" title="车位实时状态">车位状态</span>
           </router-link>
           <router-link
-            to="/admin/dashboard/shared-parking"
-            @click.native="closeSidebarOnMobile"
-            class="flex items-center gap-2 md:gap-3 px-2 md:px-4 py-3 rounded-lg transition group"
-            :class="
-              $route.path === '/admin/dashboard/shared-parking'
-                ? 'bg-emerald-50 text-emerald-700 font-semibold'
-                : 'text-slate-700 hover:bg-slate-50'
-            "
-          >
-            <span class="text-lg md:text-xl flex-shrink-0">🏠</span>
-            <span class="hidden md:inline truncate">共享车位审核</span>
-            <span class="md:hidden text-xs" title="共享车位审核">共享审核</span>
-          </router-link>
-          <router-link
             to="/admin/dashboard/reports"
             @click.native="closeSidebarOnMobile"
             class="flex items-center gap-2 md:gap-3 px-2 md:px-4 py-3 rounded-lg transition group"
@@ -175,10 +161,22 @@ export default Vue.extend({
   },
   methods: {
     handleLogout() {
-      if (confirm("确定要退出登录吗？")) {
-        localStorage.removeItem("city_parking_admin_session");
-        this.$router.push("/admin");
-      }
+      this.$confirm("确定要退出登录吗？", "提示", {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        type: "warning",
+      })
+        .then(() => {
+          // 清除管理员 token
+          localStorage.removeItem("city_parking_token");
+          // 提示退出成功
+          this.$message.success("已退出登录");
+          // 跳转到管理员登录页
+          this.$router.push("/admin");
+        })
+        .catch(() => {
+          // 用户取消，不做任何操作
+        });
     },
     toggleSidebar() {
       this.isSidebarOpen = !this.isSidebarOpen;

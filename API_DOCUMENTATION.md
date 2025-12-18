@@ -1,3 +1,140 @@
+# 智慧城市停车引导与车位共享平台 API 文档（当前前端调用版）
+
+> 依据前端代码 `src/api/http.ts` 与 `src/api/uset.ts` 重新整理。仅包含当前前端实际调用的接口；如后端路径或返回格式不同，请以后端实现为准并同步本文件。
+
+## 基础信息
+- **Base URL（前端 axios）**：`http://localhost:8080/api`
+- **数据格式**：JSON，UTF-8
+- **认证方式**：Bearer Token（登录成功后返回的 `token`，前端存储于 localStorage / sessionStorage，axios 请求拦截器自动加上 `Authorization: Bearer <token>`）
+
+## 通用响应格式（约定）
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {}
+}
+```
+- `code`：业务状态码，200 为成功
+- `message`：业务提示
+- `data`：业务数据载体
+
+---
+
+## 1. 用户认证类
+
+### 1.1 登录
+- **URL**：`POST /user/login`
+- **请求体**
+```json
+{
+  "username": "user123",
+  "password": "pass123",
+  "rememberMe": true
+}
+```
+- **字段说明**
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| username | string | 是 | 账号/用户名 |
+| password | string | 是 | 密码 |
+| rememberMe | boolean | 否 | 记住我；前端用于决定 token 存储时长 |
+
+- **成功响应示例**（示例结构，需与后端保持一致）
+```json
+{
+  "code": 200,
+  "message": "登录成功",
+  "data": {
+    "token": "jwt-token-string",
+    "userId":  1
+  }
+}
+```
+
+### 1.2 注册
+- **URL**：`POST /user/register`
+- **请求体**
+```json
+{
+  "username": "newUser",
+  "password": "pass123",
+  "phone": "13800138000"
+}
+```
+- **字段说明**
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| username | string | 是 | 用户名 |
+| password | string | 是 | 密码 |
+| phone | string | 选填 | 手机号 |
+
+- **成功响应示例**
+```json
+{
+  "code": 200,
+  "message": "注册成功",
+  "data": null
+}
+```
+
+### 1.3 获取用户信息
+- **URL**：`GET /user/info`
+- **请求头**：`Authorization: Bearer <token>`
+- **成功响应示例**
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "id": 1,
+    "username": "user123",
+    "phone": "13800138000",
+    "avatar": "https://example.com/avatar.png"
+  }
+}
+```
+
+### 1.4 重置密码（手机号）
+- **URL**：`POST /user/resetPassword`
+- **请求体**
+```json
+{
+  "phone": "13800138000",
+  "newPassword": "newPass123"
+}
+```
+- **字段说明**
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| phone | string | 是 | 11 位手机号 |
+| newPassword | string | 是 | 新密码 |
+
+- **成功响应示例**
+```json
+{
+  "code": 200,
+  "message": "重置成功",
+  "data": null
+}
+```
+
+---
+
+## 2. 认证/错误说明
+- **状态码约定**：以 `code` 字段为准，200 成功；其余视后端约定（常见 400/401/403/500）。
+- **登录态**：前端把 token 放到 localStorage / sessionStorage，axios 请求拦截器自动附加 `Authorization`。
+- **CORS**：前端默认基于 `http://localhost:8080`，如跨域请在后端允许对应 Origin，并放行 OPTIONS 预检。
+
+---
+
+## 3. 待接入 / 预留
+- 停车场列表、详情、预约
+- 共享车位发布、审核
+- 个人中心（预约、共享车位、停车历史）
+- 管理员后台相关接口
+
+> 当前前端未直接调用以上接口；接入后请补充对应路径、参数与响应示例。
 # 智慧城市停车引导与车位共享平台 API 文档
 
 ## 基础信息
@@ -65,7 +202,6 @@ Authorization: Bearer {token}  // 需要认证的接口
 {
   "username": "user123",
   "password": "password123",
-  "captcha": "ABCD",
   "rememberMe": true
 }
 ```
@@ -913,3 +1049,5 @@ Authorization: Bearer {token}  // 需要认证的接口
 ## 更新日志
 
 - **v1.0.0** (2024-01-10): 初始版本，包含所有基础功能接口
+
+

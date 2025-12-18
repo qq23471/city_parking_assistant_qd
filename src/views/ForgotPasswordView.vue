@@ -13,24 +13,22 @@
         </p>
         <div class="space-y-4">
           <h1 class="text-3xl font-bold leading-tight md:text-4xl">
-            忘记密码？我们帮你找回
+            忘记密码？用手机号找回
           </h1>
           <p class="text-sm text-slate-200 md:text-base">
-            输入注册邮箱，我们将发送重置链接；也可直接设置新密码。
+            输入注册手机号并设置新密码，提交后重置。
           </p>
         </div>
         <div class="grid gap-3 sm:grid-cols-2 text-sm text-slate-200">
           <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/10">
-            <p class="font-semibold text-emerald-200">邮箱验证</p>
+            <p class="font-semibold text-emerald-200">手机号验证</p>
             <p class="mt-2 text-xs text-slate-200">
-              发送重置邮件，验证后更新密码。
+              输入注册手机号，等待后端发送短信验证码(未实现)。
             </p>
           </div>
           <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/10">
             <p class="font-semibold text-emerald-200">直接设置新密码</p>
-            <p class="mt-2 text-xs text-slate-200">
-              演示环境可直接提交新密码。
-            </p>
+            <p class="mt-2 text-xs text-slate-200">输入新密码，提交后重置。</p>
           </div>
         </div>
       </section>
@@ -42,16 +40,16 @@
           <div class="border-b border-white/10 px-6 py-4">
             <h2 class="text-xl font-bold text-white">重置密码</h2>
             <p class="text-xs text-slate-300">
-              演示环境直接提交；接入后端可改为邮件验证。
+              输入手机号与新密码，提交后重置密码。
             </p>
           </div>
           <form class="space-y-4 px-6 py-6" @submit.prevent="handleReset">
             <label class="block text-sm font-medium text-slate-200">
-              注册邮箱
+              注册手机号
               <input
-                v-model="email"
-                type="email"
-                placeholder="请输入注册邮箱"
+                v-model="phone"
+                type="tel"
+                placeholder="请输入注册手机号（11位）"
                 class="mt-2 w-full rounded-lg border border-slate-600 bg-slate-800/80 px-3 py-2 text-sm text-white placeholder:text-slate-400 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
                 required
               />
@@ -102,26 +100,47 @@
 
 <script lang="ts">
 import Vue from "vue";
+import http from "@/api/http";
+import { resetPassword } from "@/api/uset";
 
 export default Vue.extend({
   name: "ForgotPasswordView",
   data() {
     return {
-      email: "",
+      phone: "",
       newPassword: "",
       confirmPassword: "",
       loading: false,
     };
   },
   methods: {
-    handleReset() {
+    async handleReset() {
       if (this.loading) return;
       if (this.newPassword !== this.confirmPassword) {
-        //TODO: 提示两次输入的密码不一致,使用element-ui的message组件
+        this.$message.error("两次输入的密码不一致");
+        return;
+      }
+      if (!/^1\d{10}$/.test(this.phone)) {
+        this.$message.error("请输入正确的手机号");
         return;
       }
       this.loading = true;
-      // TODO: 接入真实重置密码流程
+      try {
+        const res = await resetPassword({
+          phone: this.phone,
+          newPassword: this.newPassword,
+        });
+        if (res.data.code === 200) {
+          this.$message.success("重置密码成功");
+          this.$router.push("/");
+        } else {
+          this.$message.error(res.data.message);
+        }
+      } catch (error) {
+        this.$message.error("重置密码失败");
+      } finally {
+        this.loading = false;
+      }
     },
   },
 });

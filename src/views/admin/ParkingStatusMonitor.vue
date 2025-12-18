@@ -55,23 +55,13 @@
               class="flex items-center justify-between text-xs text-slate-600 mb-1"
             >
               <span>占用率</span>
-              <span
-                >{{
-                  Math.round(
-                    ((lot.totalSpots - lot.availableSpots) / lot.totalSpots) *
-                      100
-                  )
-                }}%</span
-              >
+              <span>{{ lot.occupancyRate.toFixed(1) }}%</span>
             </div>
             <div class="w-full bg-slate-200 rounded-full h-2">
               <div
                 class="bg-emerald-600 h-2 rounded-full transition-all"
                 :style="{
-                  width: `${
-                    ((lot.totalSpots - lot.availableSpots) / lot.totalSpots) *
-                    100
-                  }%`,
+                  width: `${lot.occupancyRate}%`,
                 }"
               ></div>
             </div>
@@ -109,15 +99,8 @@
 
 <script lang="ts">
 import Vue from "vue";
-
-interface ParkingLot {
-  id: number;
-  name: string;
-  address: string;
-  totalSpots: number;
-  availableSpots: number;
-  status: string;
-}
+import { getParkingStatus } from "@/api/Admin";
+import { ParkingStatusVO } from "@/api/index";
 
 export default Vue.extend({
   name: "ParkingStatusMonitor",
@@ -125,60 +108,12 @@ export default Vue.extend({
     return {
       refreshing: false,
       refreshTimer: null as number | null,
-      parkingLots: [
-        {
-          id: 1,
-          name: "市中心商业区停车场",
-          address: "市中心商业街123号",
-          totalSpots: 200,
-          availableSpots: 45,
-          status: "active",
-        },
-        {
-          id: 2,
-          name: "火车站停车场",
-          address: "火车站广场",
-          totalSpots: 150,
-          availableSpots: 12,
-          status: "active",
-        },
-        {
-          id: 3,
-          name: "医院停车场",
-          address: "市第一医院",
-          totalSpots: 100,
-          availableSpots: 8,
-          status: "active",
-        },
-        {
-          id: 4,
-          name: "购物中心停车场",
-          address: "万达广场",
-          totalSpots: 300,
-          availableSpots: 89,
-          status: "active",
-        },
-        {
-          id: 5,
-          name: "学校停车场",
-          address: "市第一中学",
-          totalSpots: 80,
-          availableSpots: 25,
-          status: "active",
-        },
-        {
-          id: 6,
-          name: "公园停车场",
-          address: "中央公园",
-          totalSpots: 120,
-          availableSpots: 67,
-          status: "active",
-        },
-      ] as ParkingLot[],
+      parkingLots: [] as ParkingStatusVO[],
     };
   },
   mounted() {
-    // 模拟定时刷新
+    this.loadParkingStatus();
+    // 每30秒自动刷新一次
     this.startAutoRefresh();
   },
   beforeDestroy() {
@@ -187,7 +122,26 @@ export default Vue.extend({
     }
   },
   methods: {
-    getSpotPreview(lot: ParkingLot): boolean[] {
+    /**
+     * 加载停车场实时状态
+     */
+    async loadParkingStatus() {
+      try {
+        const res = await getParkingStatus();
+        if (res.data?.code === 200) {
+          this.parkingLots = res.data.data || [];
+        } else {
+          this.$message.error(res.data?.message || "获取停车场状态失败");
+        }
+      } catch (error) {
+        console.error("加载停车场状态失败:", error);
+        this.$message.error("获取停车场状态失败，请稍后重试");
+      }
+    },
+    /**
+     * 获取车位预览
+     */
+    getSpotPreview(lot: ParkingStatusVO): boolean[] {
       // 生成100个车位的预览（最多显示100个）
       const previewCount = Math.min(100, lot.totalSpots);
       const occupiedCount = lot.totalSpots - lot.availableSpots;
@@ -201,23 +155,20 @@ export default Vue.extend({
       // 随机打乱
       return spots.sort(() => Math.random() - 0.5);
     },
-    refreshStatus() {
+    /**
+     * 刷新状态
+     */
+    async refreshStatus() {
       this.refreshing = true;
-      // 模拟API调用，随机更新车位数量
-      setTimeout(() => {
-        this.parkingLots = this.parkingLots.map((lot) => ({
-          ...lot,
-          availableSpots: Math.max(
-            0,
-            Math.min(
-              lot.totalSpots,
-              lot.availableSpots + Math.floor(Math.random() * 10) - 5
-            )
-          ),
-        }));
+      try {
+        await this.loadParkingStatus();
+      } finally {
         this.refreshing = false;
-      }, 1000);
+      }
     },
+    /**
+     * 开始自动刷新
+     */
     startAutoRefresh() {
       // 每30秒自动刷新一次
       this.refreshTimer = setInterval(() => {

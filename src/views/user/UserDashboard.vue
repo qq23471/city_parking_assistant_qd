@@ -17,15 +17,26 @@
           </h1>
         </div>
         <div class="flex items-center gap-2 md:gap-4">
+          <!-- 用户头像 -->
+          <el-avatar
+            :src="userAvatar"
+            :size="36"
+            class="cursor-pointer"
+            @click.native="goToUserCenter"
+          >
+            <i class="el-icon-user-solid"></i>
+          </el-avatar>
           <span class="text-xs md:text-sm text-slate-600 hidden sm:inline">
-            {{ userName }}
+            {{ userName || "用户" }}
           </span>
-          <button
+          <el-button
+            type="text"
+            size="small"
             @click="handleLogout"
-            class="px-3 md:px-4 py-2 text-xs md:text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition"
+            class="text-slate-700 hover:text-slate-900"
           >
             退出登录
-          </button>
+          </el-button>
         </div>
       </div>
     </header>
@@ -102,40 +113,66 @@
 </template>
 
 <script lang="ts">
+import { getUserInfo } from "@/api/uset";
 import Vue from "vue";
 
 export default Vue.extend({
   name: "UserDashboard",
   data() {
     return {
-      userName: "用户",
+      userName: "",
+      userAvatar: "", // 用户头像 URL
       isSidebarOpen: false, // 移动端侧边栏状态
     };
   },
-  mounted() {
-    // 从localStorage获取用户信息
-    const userSession = localStorage.getItem("city_parking_user_session");
-    if (userSession) {
-      try {
-        const parsed = JSON.parse(userSession);
-        this.userName = parsed.account || parsed.email || "用户";
-      } catch (e) {
-        // ignore
-      }
-    }
+  async mounted() {
+    // 加载用户信息
+    await this.loadUserInfo();
     // 监听窗口大小变化，在大屏幕上自动打开侧边栏
     this.handleResize();
     window.addEventListener("resize", this.handleResize);
+    // 监听用户信息更新事件
+    this.$root.$on("user-info-updated", this.loadUserInfo);
   },
   beforeDestroy() {
     window.removeEventListener("resize", this.handleResize);
+    // 移除事件监听
+    this.$root.$off("user-info-updated", this.loadUserInfo);
   },
   methods: {
-    handleLogout() {
-      if (confirm("确定要退出登录吗？")) {
-        localStorage.removeItem("city_parking_user_session");
-        this.$router.push("/");
+    /**
+     * 加载用户信息（用于更新导航栏）
+     */
+    async loadUserInfo() {
+      try {
+        const res = await getUserInfo();
+        if (res.data?.code === 200) {
+          this.userName = res.data.data?.username || "";
+          this.userAvatar =
+            "http://localhost:8080" + res.data.data?.avatarUrl || "";
+        }
+      } catch (error) {
+        console.error("获取用户信息失败:", error);
+        // 不显示错误提示，避免在静默刷新时打扰用户
       }
+    },
+    handleLogout() {
+      this.$confirm("确定要退出登录吗？", "提示", {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        type: "warning",
+      })
+        .then(() => {
+          // 清除所有用户 token
+          localStorage.removeItem("city_parking_token");
+          // 提示退出成功
+          this.$message.success("已退出登录");
+          // 跳转到登录页
+          this.$router.push("/");
+        })
+        .catch(() => {
+          // 用户取消，不做任何操作
+        });
     },
     toggleSidebar() {
       this.isSidebarOpen = !this.isSidebarOpen;
@@ -156,6 +193,13 @@ export default Vue.extend({
       } else {
         this.isSidebarOpen = false;
       }
+    },
+    goToUserCenter() {
+      // 如果当前已经在个人中心页面，则不跳转
+      if (this.$route.path === "/home/center") {
+        return;
+      }
+      this.$router.push("/home/center");
     },
   },
 });

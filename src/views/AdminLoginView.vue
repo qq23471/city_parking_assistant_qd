@@ -118,10 +118,8 @@
 </template>
 
 <script lang="ts">
+import { Login } from "@/api/Admin";
 import Vue from "vue";
-
-const ADMIN_SESSION_KEY = "city_parking_admin_session";
-const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 天
 
 export default Vue.extend({
   name: "AdminLoginView",
@@ -147,23 +145,37 @@ export default Vue.extend({
       }
       this.captcha = code;
     },
-    handleLogin() {
+    async handleLogin() {
       if (this.loading) return;
       if (
         !this.captchaInput ||
         this.captchaInput.trim().toUpperCase() !== this.captcha
       ) {
-        alert("验证码不正确，请重新输入");
+        this.$message.warning("验证码不正确，请重新输入");
         this.generateCaptcha();
         this.captchaInput = "";
         return;
       }
       this.loading = true;
       // TODO: 接入后台管理员登录接口
-      setTimeout(() => {
+      try {
+        await Login({
+          username: this.account,
+          password: this.password,
+          rememberMe: this.rememberMe,
+        }).then((res) => {
+          if (res.data.code === 200) {
+            localStorage.setItem("city_parking_token", res.data.data.token);
+            this.$router.push("/admin/dashboard");
+          } else {
+            this.$message.error(res.data.message);
+          }
+        });
+      } catch (error) {
+        this.$message.error("登录失败");
+      } finally {
         this.loading = false;
-        this.$router.push("/admin/dashboard");
-      }, 600);
+      }
     },
   },
 });
