@@ -51,7 +51,6 @@
               <input
                 v-model="account"
                 type="text"
-                pattern="^1\\d{10}$"
                 placeholder="例如: user123"
                 class="mt-2 w-full rounded-lg border border-slate-600 bg-slate-800/80 px-3 py-2 text-sm text-white placeholder:text-slate-400 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
                 required

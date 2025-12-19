@@ -16,7 +16,11 @@
       />
 
       <!-- 概览卡片 -->
-      <StatsCards :statistics="statistics" class="mb-4" />
+      <StatsCards
+        :statistics="statistics"
+        class="mb-4"
+        v-if="viewMode === 'list'"
+      />
 
       <!-- 列表视图 -->
       <div v-if="viewMode === 'list'">

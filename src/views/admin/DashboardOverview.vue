@@ -87,13 +87,13 @@
           </div>
         </router-link>
         <router-link
-          to="/admin/dashboard/shared-parking"
+          to="/admin/dashboard/parking-status"
           class="flex items-center gap-3 p-4 rounded-lg border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 transition"
         >
           <span class="text-2xl">✅</span>
           <div>
-            <p class="font-medium text-slate-900">审核共享车位</p>
-            <p class="text-xs text-slate-600">处理待审核申请</p>
+            <p class="font-medium text-slate-900">查看实时车位状态</p>
+            <p class="text-xs text-slate-600">查看所有停车场车位状态</p>
           </div>
         </router-link>
         <router-link
@@ -179,11 +179,16 @@
             <span class="text-xl">{{ getActivityIcon(activity.type) }}</span>
             <div class="flex-1">
               <p class="text-sm font-medium text-slate-900">
-                {{ activity.title }}
+                {{ formatActivityTitle(activity) }}
               </p>
               <p class="text-xs text-slate-600">{{ activity.time }}</p>
             </div>
-            <button class="text-xs text-blue-600 hover:underline">查看</button>
+            <button
+              class="text-xs text-blue-600 hover:underline"
+              @click="viewActivity(activity)"
+            >
+              查看
+            </button>
           </div>
           <div
             v-if="recentActivities.length === 0"
@@ -312,6 +317,34 @@ export default Vue.extend({
     },
 
     /**
+     * 格式化活动标题
+     * 将活动标题中的英文举报类型代码转换为中文
+     */
+    formatActivityTitle(activity: ActivityVO): string {
+      let title = activity.title;
+
+      // 如果是举报类型的活动，需要将标题中的英文类型代码转换为中文
+      if (activity.type === "report") {
+        // 定义举报类型代码到中文的映射
+        const reportTypeMap: Record<string, string> = {
+          false_info: "虚假信息",
+          price_fraud: "价格欺诈",
+          service_issue: "服务问题",
+          safety_issue: "安全隐患",
+          other: "其他问题",
+        };
+
+        // 遍历所有举报类型，将标题中的英文代码替换为中文
+        Object.keys(reportTypeMap).forEach((code) => {
+          const regex = new RegExp(code, "g");
+          title = title.replace(regex, reportTypeMap[code]);
+        });
+      }
+
+      return title;
+    },
+
+    /**
      * 加载活动记录
      */
     async loadActivities() {
@@ -412,6 +445,26 @@ export default Vue.extend({
       } catch (error) {
         console.error("加载统计数据失败:", error);
         this.$message.error("获取统计数据失败，请稍后重试");
+      }
+    },
+
+    /**
+     * 查看活动详情
+     * 根据活动类型跳转到相应的管理页面
+     */
+    viewActivity(activity: ActivityVO) {
+      try {
+        // 根据活动类型跳转到相应的页面
+        if (activity.type === "report") {
+          {
+            this.$router.push("/admin/dashboard/reports");
+          }
+        } else {
+          this.$router.push("/admin/dashboard/parking-lots");
+        }
+      } catch (error) {
+        console.error("跳转失败:", error);
+        this.$message.error("跳转失败，请稍后重试");
       }
     },
   },

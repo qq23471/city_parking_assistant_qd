@@ -176,14 +176,14 @@
             >
               <div class="flex flex-col md:flex-row gap-4">
                 <!-- 车位图片 -->
-                <div v-if="spot.img" class="flex-shrink-0">
+                <!-- <div class="flex-shrink-0">
                   <img
-                    :src="spot.img"
+                    :src="spot.img || require('@/assets/OIP.webp')"
                     :alt="spot.name"
                     class="w-32 h-32 object-cover rounded-lg border border-slate-200"
                     @error="handleImageError"
                   />
-                </div>
+                </div> -->
                 <div class="flex-1">
                   <div class="flex items-start justify-between gap-4 mb-3">
                     <div>
